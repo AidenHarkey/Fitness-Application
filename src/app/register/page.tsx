@@ -28,12 +28,19 @@ export default function RegisterPage() {
       setError(data.error || "Could not register.");
       return;
     }
-    const sign = await signIn("credentials", { email, password, redirect: false, callbackUrl: "/app" });
+    const sign = await signIn("credentials", {
+      email: email.trim().toLowerCase(),
+      password,
+      redirect: false,
+      callbackUrl: "/app",
+    });
     if (sign?.ok) {
       router.push("/app");
       router.refresh();
+    } else if (sign?.error === "Configuration") {
+      setError("Account was created, but sign-in is misconfigured. In Vercel, add AUTH_SECRET under Environment Variables (Production), then Redeploy, then use Sign in.");
     } else {
-      setError("Account created. Please sign in.");
+      setError("Account created. Please sign in manually.");
     }
   }
 

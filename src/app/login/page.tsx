@@ -5,23 +5,41 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, FormEvent, Suspense } from "react";
 
+function formatAuthError(errorCode: string | null | undefined) {
+  if (errorCode === "Configuration") {
+    return "Auth is not fully configured for this server. In Vercel: Settings → Environment Variables, set AUTH_SECRET (a long random string) for Production, then Redeploy.";
+  }
+  if (errorCode === "CredentialsSignin" || !errorCode) {
+    return "Invalid email or password.";
+  }
+  return `Sign-in failed${errorCode ? ` (${errorCode})` : ""}. Try again or use Register.`;
+}
+
 function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callback = searchParams.get("callbackUrl") || "/app";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const err = searchParams.get("error");
+    return err ? formatAuthError(err) : null;
+  });
   const [pending, setPending] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setPending(true);
-    const res = await signIn("credentials", { email, password, redirect: false, callbackUrl: callback });
+    const res = await signIn("credentials", {
+      email: email.trim().toLowerCase(),
+      password,
+      redirect: false,
+      callbackUrl: callback,
+    });
     setPending(false);
     if (res?.error) {
-      setError("Invalid email or password.");
+      setError(formatAuthError(res.error));
       return;
     }
     if (res?.ok) {
