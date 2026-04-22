@@ -1,0 +1,113 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum MovementPattern {
+  PUSH
+  PULL
+  LEGS
+  FULL_BODY
+  CORE
+  OTHER
+}
+
+enum WeightUnit {
+  LB
+  KG
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  image         String?
+  passwordHash  String
+  emailVerified DateTime?
+  createdAt     DateTime @default(now())
+
+  settings  UserSettings?
+  exercises Exercise[] @relation("UserExercises")
+  sessions  WorkoutSession[]
+  plans     WorkoutPlan[]
+}
+
+model UserSettings {
+  id                 String     @id @default(cuid())
+  userId             String       @unique
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultRestSeconds Int          @default(120)
+  recoveryMinDays    Int          @default(1)
+  weightUnit         WeightUnit  @default(LB)
+  updatedAt          DateTime     @updatedAt
+}
+
+/// Library exercises: userId null. User-created: userId set.
+model Exercise {
+  id        String          @id @default(cuid())
+  name      String
+  pattern   MovementPattern  @default(OTHER)
+  userId    String?
+  user      User?     @relation("UserExercises", fields: [userId], references: [id], onDelete: Cascade)
+  setLogs   SetLog[]
+
+  @@index([userId, name])
+  @@index([pattern])
+}
+
+model WorkoutSession {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt  DateTime @default(now())
+  completedAt DateTime?
+  notes      String?
+
+  planId    String?
+  plan      WorkoutPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  weekIndex Int?
+  dayIndex  Int?
+  dayName   String?
+
+  sets SetLog[]
+
+  @@index([userId, startedAt])
+  @@index([planId])
+}
+
+model SetLog {
+  id         String  @id @default(cuid())
+  sessionId  String
+  session    WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  setOrder   Int
+  weight     Float
+  reps       Int
+  rpe        Float? // rate of perceived exertion 1–10
+  restAfterSeconds Int? // after this set
+
+  @@index([exerciseId])
+  @@index([sessionId])
+}
+
+model WorkoutPlan {
+  id         String  @id @default(cuid())
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  prompt     String
+  daysPerWeek Int
+  goal       String?
+  /// Zod-validated { weeks: [{ week, days: [{ name, dayIndex, exercises: [...] }] }] }
+  content    Json
+  isRunPlan  Boolean @default(false) // e.g. couch-to-5k
+  createdAt  DateTime @default(now())
+  sessions   WorkoutSession[]
+
+  @@index([userId])
+}
