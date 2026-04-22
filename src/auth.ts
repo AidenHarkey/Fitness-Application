@@ -3,6 +3,9 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./lib/prisma";
 
+// Vercel: set AUTH_SECRET (or legacy NEXTAUTH_SECRET) in Project → Environment Variables for Production.
+const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
@@ -48,5 +51,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
   trustHost: true,
-  secret: process.env.AUTH_SECRET,
+  secret: authSecret,
 });
